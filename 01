@@ -1,0 +1,199 @@
+centos
+jdk
+vi .etc profile java,path
+添加：hadoop 在 centos 6.2上安装过程
+下载hadoop http：//archive.cloudera.com/cdh4/cdh/4/hadoop-2.0
+安装java的是 yum install java-1.7.0-openjdk*
+
+1.       安装 JDK *
+
+yum install java-1.6.0-openjdk-devel
+
+2.       设置环境变量 *
+
+编辑 /etc/profile 文件，设置 JAVA_HOME 环境变量以及类路径：
+
+export JAVA_HOME="/usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64"
+
+export PATH=$PATH:$JAVA_HOME/bin
+
+export CLASSPATH=.:$JAVA_HOME/lib/tools.jar:$JAVA_HOME/lib/dt.jar
+
+ssh 安装和连通
+
+  添加 hosts 的映射 *HOST修改有临时修改和永久修改，临时是hostname newname，永久是：etc/sysconfig/network
+
+编辑 /etc/hosts 文件，注意 host name 不要有下划线，见下步骤 9
+
+192.168.225.16 master
+
+192.168.225.66 slave1
+
+cd /root & mkdir .ssh
+
+chmod 700 .ssh & cd .ssh
+
+创建密码为空的 RSA 密钥对：
+
+ssh-keygen -t rsa -P ""
+
+在提示的对称密钥名称中输入 id_rsa
+
+将公钥添加至 authorized_keys 中：
+
+cat id_rsa.pub >> authorized_keys
+
+chmod 644 authorized_keys # 重要
+
+编辑 sshd 配置文件 /etc/ssh/sshd_config ，把 #AuthorizedKeysFile  .ssh/authorized_keys 前面的注释取消掉。
+
+重启 sshd 服务：
+
+service sshd restart
+
+测试 SSH 连接。连接时会提示是否连接，按回车后会将此公钥加入至 knows_hosts 中：
+
+    ssh localhost
+
+配置 master 和 slave1 的 ssh 互通
+
+暂时没解决这个：在 slave1 中重复步骤 4 ，然后把 slave1 中的 .ssh/authorized_keys 复制至 master 的 .ssh/authorized_keys中。注意复制过去之后，要看最后的类似 root@localhost 的字符串，修改成 root@slave1 。同样将 master的 key 也复制至 slave1 ，并将最后的串修改成 root@master 。
+
+或者使用如下命令：
+
+ssh-copy-id -i ~/.ssh/id_rsa.pub root@slave1
+
+测试 SSH 连接：
+
+在 master 上运行：
+
+ssh slave1
+
+在 slave1 上运行：
+
+ssh master
+
+
+#    安装centos时请注意，部署目录结构要相同,并且都有一个相同的用户名的帐户。另外尽量把root账户的密码设为不同的；host就使用所担任的角色命名
+
+#   进入系统获得root权限之后就使用hostname *****临时性的修改；永久性的修改需要在/etc/sysconfig/network
+
+#   安装java yum install java* 275M
+
+#   安装hadoop CDH4；直接下载tar.gz的包安装下载地址是：http://archive.cloudera.com/cdh4/cdh/4/;我安装的是hadoop-2.0.0-cdh4.3.tar.gz（233M）
+
+#    vi /etc/profile  配置JAVA_HOME
+     export JAVA_HOME="/usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64"
+     export PATH=$PATH:$JAVA_HOME/bin
+     export CLASSPATH=.:$JAVA_HOME/lib/tools.jar:$JAVA_HOME/lib/dt.jar
+
+#    配置 slaves master hadoop-env   core-site hdfs-site mapred-site和#yarn
+   core-site:
+    <property>
+                <name>fs.defaultFS</name>
+                <value>hdfs://192.168.127.140/</value>
+        </property>
+        <property>
+                <name>fs.trash.interval</name>
+                <value>10080</value>
+        </property>
+        <property>
+                <name>fs.trash.checkpoint.interval</name>
+                <value>10080</value>
+        </property>
+   hdfs-site
+
+<property>
+            <name>dfs.replication</name>
+            <value>1</value>
+</property>
+<property>
+            <name>dfs.namenode.name.dir</name>
+            <value>/home/data/hadoop/nn</value>
+</property>
+<property>
+            <name>dfs.datanode.data.dir</name>
+            <value>/home/data/hadoop/dn</value>
+</property>
+<property>
+            <name>dfs.namenode.secondary.http-address</name>
+            <value>192.168.127.141:50090</value>
+</property>
+<property>
+            <name>dfs.webhdfs.enabled</name>
+            <value>true</value>
+</property>
+
+    mapred-site
+        <property>
+                <name>mapred.job.tracker</name>
+                <value>192.168.127.140:9001</value>
+        </property>
+
+#    ssh x相互之间访问：
+           编辑 sshd 配置文件 /etc/ssh/sshd_config ，把 #AuthorizedKeysFile  .ssh/authorized_keys 前面的注释取消掉。
+           ssh-keygen -t rsa
+           cat id_rsa.pub >> authorized_keys
+           启动ssh服务
+           测试本机：sshlocalhost
+            ssh-copy-id -i
+
+#    格式化namenode：bin/hadoop namenode -format
+#    启动：sbin/start-all.sh或者sbin/start-dfs.sh sbin/start-mapred.sh或yarn.sh
+#    检查任务：jps
+
+问题和解决方法思路：
+#  error getting localname****    查看namenode本地名字是否有错
+#  datanode提示多次ipc链接 可能是防火墙、端口占用、和hdfs的配置与真实的namenode是否正确
+#  出现datanode已经将任务挂起但是没有存活的节点时原因可能是id不对称，删除datanode和namenode的data下的数据和tmp数据重新格式化hdfs
+#  出现unable to detrmine local hostname；原因可能是hosts的问题可用hostname -f 查看，修改/etc/hosts
+#  ssh connect to host localhost post 22 refused 可能原因：安装ssh、服务未启动、防火墙
+#  bin/hadoop fs -put ./input input
+    put: org.apache.hadoop.hdfs.server.namenode.SafeModeException: Cannot create directory /user/root/input. Name node is in safe mode.
+    hadoop dfsadmin -safemode leave
+#  Too many fetch-failures
+    出现这个问题主要是结点间的连通不够全面。
+    1) 检查   /etc/hosts
+    2) 检查   ~/..ssh/authorized_keys包含所有服务器（包括其自身）的public key
+#Namenode in safe mode解决方法bin/hadoop dfsadmin -safemode leave
+#  Hadoop添加节点的方法（书本314页，与此有区别）
+    1\
+    1. 先在slave上配置好环境，包括ssh，jdk，相关config，lib，bin等的拷贝；
+    2. 将新的datanode的host加到集群namenode及其他datanode中去；
+    3. 将新的datanode的ip加到master的conf/slaves中；
+    4. 重启cluster,在cluster中看到新的datanode节点；
+    5. 运行bin/start-balancer.sh，这个会很耗时间
+    备注：
+    1. 如果不balance，那么cluster会把新的数据都存放在新的node上，这样会降低mr的工作效率；
+    2. 也可调用bin/start-balancer.sh 命令执行，也可加参数 -threshold 5 threshold 是平衡阈值，默认是10%，值越低各节点越平衡，但消耗时间也更长。
+    3. balancer也可以在有mr job的cluster上运行，默认dfs.balance.bandwidthPerSec很低，为1M/s。在没有mr job时，可以提高该设置加快负载均衡时间。
+    4. 必须确保slave的firewall已关闭;
+    5. 确保新的slave的ip已经添加到master及其他slaves的/etc/hosts中，反之也要将master及其他slave的ip添加到新的slave的/etc/hosts中
+    2\
+     有的时候， datanode或者tasktracker crash，或者需要向集群中增加新的机器时又不能重启集群。下面方法也许对你有用。
+     1.把新机器的增加到conf/slaves文件中（datanode或者tasktracker crash则可跳过）
+     2.在新机器上进入hadoop安装目录
+        $bin/hadoop-daemon.sh start datanode 
+        $bin/hadoop-daemon.sh start tasktracker
+     3.在namenode上
+         $bin/hadoop balancer
+# 单个node新加硬盘
+    1.修改需要新加硬盘的node的dfs.data.dir，用逗号分隔新、旧文件目录
+    2.重启dfs1)      重启后永久性生效：
+#  关闭firewall：
+        1）   重启生效
+                开启： chkconfig iptables on
+                关闭： chkconfig iptables off
+        2)      即时生效，重启后失效：
+               开启： service iptables start
+               关闭： service iptables stop
+#错误信息提示：“could only be replicated to 0 nodes, instead of 1 ”：
+                                  1确保master（namenode)、slaves（datanode）的防火墙已经关闭（一般采用这个即可）
+                                  2确保DFS空间的使用情况
+                                  3Hadoop默认的hadoop.tmp.dir的路径为/tmp/hadoop-${user.name},而有的linux系统的/tmp目录文件系统的类型往往是Hadoop不支持的。
+                                  4 先后启动namenode、datanode
+                                  $hadoop-daemon.sh start namenode
+                                  $hadoop-daemon.sh start datanode
+#开启debug信息：export HADOOP_ROOT_LOGGER=DEBUG.console
+# 查询安全模式 bin/hadoop dfsdmin -safemode get
+    设置执行命令时离开安全模式：wait 进入时enter
