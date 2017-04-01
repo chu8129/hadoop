@@ -1,0 +1,131 @@
+hadoop
+bin/hdfs namenode -format
+sbin/start-dfs.sh
+#connect fail
+vim etc/hadoop/hadoop-env.sh
+#export HADOOP_SSH_OPTS="-p 8129"
+sbin/start-dfs.sh
+#java home path
+vim etc/hadoop/hadoop-env.sh
+#echo $JAVA_HOME
+sbin/start-dfs.sh
+#Invalid URI for NameNode address (check fs.defaultFS): file:/// has no authority.
+fs.defaultFS没有配置
+core-site.xml:
+<configuration>
+     <property>
+         <name>fs.default.name</name>
+         <value>hdfs://localhost:9000</value>
+     </property>
+</configuration>
+
+hdfs-site.xml:
+<configuration>
+     <property>
+         <name>dfs.replication</name>
+         <value>1</value>
+     </property>
+</configuration>
+
+mapred-site.xml:
+<configuration>
+     <property>
+         <name>mapred.job.tracker</name>
+         <value>localhost:9001</value>
+     </property>
+</configuration>
+
+检查状态
+qw@qw-B85M-DS3H-A:/ssd/compareDatabase/hbase/hadoop-2.7.3$ jps
+19794 NameNode
+20310 Jps
+19911 DataNode
+20108 SecondaryNameNode
+
+qw@qw-B85M-DS3H-A:/ssd/compareDatabase/hbase/hadoop-2.7.3$ bin/hadoop dfsadmin -report
+DEPRECATED: Use of this script to execute hdfs command is deprecated.
+Instead use the hdfs command for it.
+
+Configured Capacity: 118013599744 (109.91 GB)
+Present Capacity: 34322284544 (31.97 GB)
+DFS Remaining: 34322259968 (31.97 GB)
+DFS Used: 24576 (24 KB)
+DFS Used%: 0.00%
+Under replicated blocks: 0
+Blocks with corrupt replicas: 0
+Missing blocks: 0
+Missing blocks (with replication factor 1): 0
+
+-------------------------------------------------
+Live datanodes (1):
+
+Name: 127.0.0.1:50010 (localhost)
+Hostname: qw-B85M-DS3H-A
+Decommission Status : Normal
+Configured Capacity: 118013599744 (109.91 GB)
+DFS Used: 24576 (24 KB)
+Non DFS Used: 83691315200 (77.94 GB)
+DFS Remaining: 34322259968 (31.97 GB)
+DFS Used%: 0.00%
+DFS Remaining%: 29.08%
+Configured Cache Capacity: 0 (0 B)
+Cache Used: 0 (0 B)
+Cache Remaining: 0 (0 B)
+Cache Used%: 100.00%
+Cache Remaining%: 0.00%
+Xceivers: 1
+Last contact: Tue Mar 28 11:42:51 CST 2017
+
+Habse
+
+conf/hbase-site.xml
+<configuration>
+  <property>
+        <name>hbase.rootdir</name>
+        <value>file:///home/test/hbase</value>
+        </property>
+  <property>
+        <name>hbase.zookeeper.property.dataDir</name>
+        <value>/ssd/compareDatabase/hbase/hbase-1.3.0/test/zookeeper</value>
+        </property>
+</configuration>
+
+bin/start-hbase.sh
+
+qw@qw-B85M-DS3H-A:/ssd/compareDatabase/hbase/hbase-1.3.0$ jps
+19794 NameNode
+21315 Jps
+21029 HMaster
+19911 DataNode
+20108 SecondaryNameNode
+
+启动一直失败，修改hbase-env.sh，添加java_home;
+
+Could not start ZK at requested port of 2181.  ZK was started at port: 2182.  Aborting as clients (e.g. shell) will not be able to find this ZK quorum.
+
+修改
+conf/hbase-env.sh
+export HBASE_SSH_OPTS="-p 8129"
+
+client.ZooKeeperRegistry: ClusterId read in ZooKeeper is null
+修改
+
+conf/hbase-site.xml
+<property>
+        <name>hbase.zookeeper.quorum</name>
+        <value>localhost</value>
+        <description></description>
+</property>
+
+hbase shell
+list ERROR
+ERROR: Can't get master address from ZooKeeper; znode data == null
+hbase-site.xml
+修改：
+<property>
+  <name>hbase.rootdir</name>
+  <value>hdfs://hadoop0:9000/hbase</value>
+</property>
+
+hadoop start-all.sh
+hbase start-hbase.sh
