@@ -1,0 +1,27 @@
+1\
+<property>
+  <name>yarn.nodemanager.vmem-check-enabled</name>
+  <value>false</value>
+  <description>Whether virtual memory limits will be enforced for containers.</description>
+</property>
+The default for this setting is true.
+<property>
+  <name>yarn.nodemanager.vmem-pmem-ratio</name>
+  <value>5</value>
+  <description>Ratio between virtual memory to physical memory when setting memory limits for containers. Container allocations are expressed in terms of physical memory, and virtual memory usage is allowed to exceed this allocation by this ratio.</description>
+</property>
+The default is 2.1
+
+2\
+in Tez-site.xml
+
+tez.am.resource.memory.mb
+tez.task.resource.memory.mb
+tez.am.java.opts
+And in Yarn-site.xml
+
+yarn.nodemanager.resource.memory-mb
+yarn.scheduler.minimum-allocation-mb
+yarn.scheduler.maximum-allocation-mb
+yarn.nodemanager.vmem-check-enabled
+yarn.nodemanager.vmem-pmem-ratio
